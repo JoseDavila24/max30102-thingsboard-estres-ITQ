@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PulsePPG · Resultado</title>
+  <style>
+    :root {
+      --paper: #ffffff;
+      --bg: #f3f5f4;
+      --ink: #1f2a30;
+      --muted: #5d6b72;
+      --line: #dfe5e3;
+      --accent: #2c7a74;
+      --accent-soft: #e6f2f0;
+      --ok: #2f7d4f;     --ok-soft: #e8f4ec;
+      --warn: #a2611a;   --warn-soft: #fbf1e3;
+      --alert: #a63d3d;  --alert-soft: #f8e9e9;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink);
+           font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    .sheet { background: var(--paper); max-width: 720px; margin: 24px auto; padding: 32px;
+             border: 1px solid var(--line); border-top: 6px solid var(--accent); border-radius: 6px; }
+    header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px;
+             padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+    .kicker { margin: 0; font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+    h1 { margin: 2px 0 0; font-size: 1.5rem; font-weight: 600; }
+    .ids { margin: 0; font-size: .9rem; color: var(--muted); text-align: right; }
+    .ids b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+    section { padding: 24px 0; border-bottom: 1px solid var(--line); }
+    section:last-of-type { border-bottom: 0; }
+    h2 { margin: 0 0 4px; font-size: 1.1rem; font-weight: 600; }
+    h3 { margin: 0; font-size: 1rem; font-weight: 600; }
+    p { margin: 8px 0; }
+    .muted { color: var(--muted); }
+    .small { font-size: .9rem; }
+
+    .verdict { display: flex; gap: 16px; align-items: flex-start; padding: 16px; border-radius: 6px; margin-top: 12px; }
+    .verdict .tag { flex: none; padding: 4px 12px; border-radius: 999px; font-weight: 600; font-size: .95rem; }
+    .verdict p { margin: 0; }
+    .no_stress   { background: var(--ok-soft); }    .no_stress .tag   { background: var(--ok); color: #fff; }
+    .stress      { background: var(--alert-soft); } .stress .tag      { background: var(--alert); color: #fff; }
+    .low_quality { background: var(--warn-soft); }  .low_quality .tag { background: var(--warn); color: #fff; }
+
+    .chart { width: 100%; height: auto; display: block; margin: 12px 0 4px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: .9rem; color: var(--muted); }
+
+    .metric { padding: 16px 0; border-top: 1px dashed var(--line); }
+    .metric:first-of-type { border-top: 0; padding-top: 8px; }
+    .metric-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; }
+    .value { font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .chip { display: inline-block; font-size: .8rem; padding: 1px 10px; border-radius: 999px; margin-left: 8px; vertical-align: middle; }
+    .chip.high { background: var(--alert-soft); color: var(--alert); }
+    .chip.low  { background: var(--ok-soft); color: var(--ok); }
+
+    dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 24px; margin: 12px 0 0; }
+    dt { color: var(--muted); }
+    dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+    .notice { margin-top: 16px; padding: 12px 16px; background: var(--accent-soft); border-radius: 6px; font-size: .9rem; }
+    a { color: var(--accent); }
+    @media (max-width: 520px) {
+      .sheet { padding: 20px 16px; margin: 0 auto; }
+      .ids { text-align: left; }
+      .verdict { flex-direction: column; gap: 8px; }
+      .chart text { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+{%- set names = {
+  "hr_bpm":   "Pulsaciones por minuto",
+  "rmssd_ms": "Variación de un latido al siguiente (RMSSD)",
+  "sdnn_ms":  "Variabilidad global del ritmo (SDNN)",
+} -%}
+{%- set plain = {
+  "hr_bpm":   "Cuántas veces late tu corazón en un minuto. En reposo lo habitual es entre 60 y 100; con nervios, café o tras moverse, sube.",
+  "rmssd_ms": "Un corazón sano no late como un metrónomo: el tiempo entre latidos cambia un poco de uno a otro. En reposo esa variación es mayor; con estrés el ritmo se vuelve más rígido y la variación baja.",
+  "sdnn_ms":  "Cuánto varía el tiempo entre latidos a lo largo de toda la medición. Un valor bajo indica un ritmo poco flexible, algo que se asocia al estrés o al cansancio.",
+} -%}
+{%- set theory = {
+  "hr_bpm":   "Cada pico de la gráfica es un latido: los contamos y medimos el tiempo que pasa entre uno y otro.",
+  "rmssd_ms": "Refleja la actividad del sistema nervioso que nos calma (parasimpático). Es la medida de variabilidad más usada en registros cortos.",
+  "sdnn_ms":  "Cinco minutos es la duración estándar para medir esta variabilidad en registros cortos.",
+} -%}
+{%- set verdicts = {
+  "no_stress":   ("Sin señales de estrés", "Tu pulso y la variación entre tus latidos están en valores habituales de reposo."),
+  "stress":      ("Posibles señales de estrés", "Tu corazón latía más rápido o con menos variación entre latidos de lo esperable en reposo. Puede deberse a nervios, cansancio, café o actividad reciente."),
+  "low_quality": ("Lectura no válida", "No se distinguieron latidos regulares en la señal. Suele pasar si el dedo no cubre bien el sensor o se mueve. Repite la medición con el dedo apoyado y quieto."),
+} -%}
+{%- set v = verdicts.get(label, (label, "")) -%}
+  <main class="sheet">
+    <header>
+      <div>
+        <p class="kicker">PulsePPG · Ficha de resultado</p>
+        <h1>Resultado del análisis</h1>
+      </div>
+      <p class="ids">
+        PIN <b>{{ pin }}</b><br>
+        {% if started_at %}{{ started_at }}{% endif %}
+      </p>
+    </header>
+
+    <section aria-labelledby="s-result">
+      <h2 id="s-result">Resultado</h2>
+      <div class="verdict {{ label }}">
+        <span class="tag">{{ v[0] }}</span>
+        <p>{{ v[1] }}</p>
+      </div>
+
+      {% if label != "low_quality" %}
+        {%- set seg_w = 560 / total_rules -%}
+        <svg class="chart" viewBox="0 6 600 70" role="img"
+             aria-label="Puntuación: {{ rules_met }} de {{ total_rules }} indicadores fuera de su límite">
+          {% for i in range(total_rules) %}
+            <rect x="{{ 20 + i * seg_w + 2 }}" y="22" width="{{ seg_w - 4 }}" height="22" rx="4"
+                  fill="{{ ('#a63d3d' if label == 'stress' else '#2f7d4f') if i < rules_met else '#e4e9e7' }}"/>
+          {% endfor %}
+          {%- set tx = 20 + stress_min_rules * seg_w -%}
+          <line x1="{{ tx }}" y1="14" x2="{{ tx }}" y2="52" stroke="#1f2a30" stroke-width="2" stroke-dasharray="4 3"/>
+          <text x="20" y="70" font-size="13" fill="#5d6b72">0</text>
+          {% for i in range(1, total_rules + 1) %}
+            <text x="{{ 20 + i * seg_w }}" y="70" font-size="13" fill="#5d6b72" text-anchor="middle">{{ i }}</text>
+          {% endfor %}
+        </svg>
+        <div class="legend"><span>Bloques llenos: indicadores fuera de su límite</span><span>Línea discontinua: a partir de aquí, posible estrés</span></div>
+        <p><b>Puntuación: {{ rules_met }} de {{ total_rules }}</b> <span class="muted">({{ (score * 100) | round | int }} %)</span>.
+          Cuenta cuántos de los {{ total_rules }} indicadores de abajo están fuera de su límite. Cuantos menos, más tranquilo
+          estaba tu corazón; con {{ stress_min_rules }} o más, el resultado se marca como posible estrés.</p>
+      {% endif %}
+    </section>
+
+    {% if signal %}
+    <section aria-labelledby="s-signal">
+      <h2 id="s-signal">Tu señal de pulso</h2>
+      <p class="muted small">Así ha visto el sensor la sangre pasando por tu dedo durante la medición.</p>
+      {% if signal.is_fragment %}
+        <p class="muted small">Se muestra un fragmento de 20 segundos (de {{ signal["from"] }} a {{ signal.to }}) de una
+          medición de {{ signal.total }}. La medición completa tiene cientos de latidos y en una sola línea no se
+          distinguirían; el análisis sí usa la medición entera.</p>
+      {% endif %}
+      <svg class="chart" viewBox="0 0 {{ signal.width }} {{ signal.height + 22 }}" role="img"
+           aria-label="Gráfica de la señal de pulso a lo largo del tiempo">
+        <rect x="0" y="0" width="{{ signal.width }}" height="{{ signal.height }}" fill="#fafbfb" stroke="#dfe5e3"/>
+        {% for tk in signal.ticks %}
+          <line x1="{{ tk.x }}" y1="0" x2="{{ tk.x }}" y2="{{ signal.height }}" stroke="#eef1f0"/>
+          <text x="{{ tk.x }}" y="{{ signal.height + 16 }}" font-size="12" fill="#5d6b72" text-anchor="{{ 'start' if loop.first else ('end' if loop.last else 'middle') }}">{{ tk.label }}</text>
+        {% endfor %}
+        <polyline points="{{ signal.points }}" fill="none" stroke="#2c7a74" stroke-width="1.6" stroke-linejoin="round"/>
+        {% for bx in signal.beats %}
+          <circle cx="{{ bx }}" cy="4" r="3" fill="#a63d3d"/>
+        {% endfor %}
+      </svg>
+      <div class="legend"><span>Eje horizontal: tiempo desde el inicio de la medición</span><span>Cada pico ≈ un latido</span>{% if signal.beats %}<span><span style="color:#a63d3d">●</span> Latido detectado por el análisis</span>{% endif %}</div>
+      {% if label == "low_quality" %}
+        <p class="small"><b>En esta medición</b> la línea no muestra ondas regulares: es ruido, no latidos.
+          Por eso no se ha podido calcular el resultado.</p>
+      {% endif %}
+      <p class="small">
+        <b>Cómo leerla:</b> una línea con ondas parecidas y espaciadas por igual indica una buena lectura y un pulso
+        regular. Ondas muy desiguales o saltos grandes suelen indicar movimiento del dedo. Una línea casi plana o
+        ruidosa, sin ondas claras, indica que el sensor no captó bien el pulso.{% if signal.beats %} Los puntos rojos marcan los latidos
+        que ha encontrado el análisis: si coinciden con los picos, las medidas de abajo son fiables.{% endif %}
+      </p>
+    </section>
+    {% endif %}
+
+    {% if label != "low_quality" %}
+    <section aria-labelledby="s-metrics">
+      <h2 id="s-metrics">Indicadores</h2>
+      <p class="muted small">Se calculan a partir del tiempo entre latidos. Cada uno se compara con un límite de
+        referencia para adultos en reposo.</p>
+      {% for ind in indicators if ind.key in metrics %}
+        {%- set val = metrics[ind.key] -%}
+        {%- set thr = ind.threshold -%}
+        {%- set bad = (val > thr) if ind.bad == "above" else (val < thr) -%}
+        {%- set fill = [val / (2 * thr), 1] | min -%}
+        <div class="metric">
+          <div class="metric-head">
+            <h3>{{ names[ind.key] }}</h3>
+            <span><span class="value">{{ "%.0f" | format(val) }} {{ ind.unit }}</span>
+              <span class="chip {{ 'high' if bad else 'low' }}">{{ ("por encima del límite" if ind.bad == "above" else "por debajo del límite") if bad else "dentro de lo normal" }}</span></span>
+          </div>
+          <svg class="chart" viewBox="0 0 600 30" role="img"
+               aria-label="{{ '%.0f' | format(val) }} {{ ind.unit }} frente a un límite de {{ thr }} {{ ind.unit }}">
+            <rect x="0" y="8" width="600" height="12" rx="6" fill="#e4e9e7"/>
+            <rect x="0" y="8" width="{{ (fill * 600) | round(1) }}" height="12" rx="6" fill="{{ '#a63d3d' if bad else '#2f7d4f' }}"/>
+            <line x1="300" y1="2" x2="300" y2="26" stroke="#1f2a30" stroke-width="2" stroke-dasharray="4 3"/>
+          </svg>
+          <p class="muted small" style="margin-top:0">Límite: {{ thr }} {{ ind.unit }} (línea discontinua). Posible estrés si queda
+            {{ "por encima" if ind.bad == "above" else "por debajo" }}.</p>
+          <p>{{ plain[ind.key] }}</p>
+          <p class="muted small">{{ theory[ind.key] }}</p>
+        </div>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    <section aria-labelledby="s-data">
+      <h2 id="s-data">Datos de la medición</h2>
+      <dl>
+        {% if metrics.duration_s is defined %}<dt>Duración</dt><dd>{% if metrics.duration_s >= 60 %}{{ (metrics.duration_s // 60) | int }} min {{ (metrics.duration_s % 60) | round | int }} s{% else %}{{ metrics.duration_s }} s{% endif %}</dd>{% endif %}
+        {% if metrics.ir_mean is defined %}
+          <dt>Intensidad de la señal</dt>
+          <dd>{{ "{:,}".format(metrics.ir_mean).replace(",", ".") }}
+            <span class="muted small">({{ "buen contacto del dedo" if metrics.ir_mean >= min_ir_mean else "contacto débil" }})</span></dd>
+        {% endif %}
+        <dt>Lecturas registradas</dt><dd>{{ n_samples }}</dd>
+        {% if metrics.beats is defined %}
+          <dt>Latidos detectados</dt>
+          <dd>{{ metrics.beats }} <span class="muted small">({{ metrics.valid_pct }} % de intervalos válidos)</span></dd>
+        {% endif %}
+        {% if started_at %}<dt>Inicio</dt><dd>{{ started_at }}</dd>{% endif %}
+        {% if finished_at %}<dt>Fin</dt><dd>{{ finished_at }}</dd>{% endif %}
+      </dl>
+      {% if metrics.ir_mean is defined %}
+        <p class="muted small">La intensidad indica cuánta luz vuelve al sensor: si es baja, el dedo no estaba bien apoyado
+          y el resultado no es fiable.</p>
+      {% endif %}
+      <div class="notice">
+        Esta ficha es una demostración académica: los límites son valores generales, no ajustados a tu caso. No es un diagnóstico médico: si te
+        preocupa tu salud, consulta con un profesional.
+      </div>
+      <p class="muted small">Análisis calculado en {{ elapsed_ms }} ms.</p>
+    </section>
+
+    <p><a href="{{ '/admin' if from_admin else '/' }}">&larr; Volver</a></p>
+  </main>
+</body>
+</html>
