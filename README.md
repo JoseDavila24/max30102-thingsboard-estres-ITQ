@@ -1,4 +1,4 @@
-# PulsePPG · IoT + Big Data (ITQ)
+# ITQ-IoT-Big_Data-max30102_thingsboard_estres
 
 Demo académico para la clase de **IoT y Big Data** del ITQ.
 
